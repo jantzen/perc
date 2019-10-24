@@ -15,7 +15,6 @@ void setup() {
     Serial.println(F("Failed to boot VL53L0X"));
     while(1);
   }
-  // power 
 //  Serial.println(F("VL53L0X API Simple Ranging example\n\n")); 
 }
 
@@ -27,10 +26,8 @@ void loop() {
   lox.rangingTest(&measure, false); // pass in 'true' to get debug data printout!
 
   if (measure.RangeStatus != 4) {  // phase failures have incorrect data
-    if (Serial.availableForWrite() == 63){
-      Serial.println(measure.RangeMilliMeter);
-    }
+    Serial.println(measure.RangeMilliMeter); 
   } 
     
-  delay(500);
+  delay(5);
 }

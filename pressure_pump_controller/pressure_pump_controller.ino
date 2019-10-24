@@ -32,6 +32,10 @@ int ptol_set = 0; //indicate parameters not yet received
 int pset_set = 0;
 float pset = -1; // set initial nonsense value for pressure setpoin
 float ptol = -1; // set nonsense value for error tolerance
+float pressure_hPa = 2000;
+int control = 0;
+char instruction = '-';
+
 
 void setup() {
   Serial.begin(115200);
@@ -45,6 +49,7 @@ void setup() {
 }
 
 void loop() {
+  // set params
   if(pset_set == 0 && Serial.available() > 0){
     float tmp = Serial.parseFloat();
     if (1500 >= tmp && tmp >= 0){
@@ -52,6 +57,9 @@ void loop() {
       Serial.println(1);
     }
     pset_set = 1;
+    if (ptol_set == 1){
+      control = 1;
+    }
   }
   else if(ptol_set == 0 && Serial.available() > 0){
     float tmp = Serial.parseFloat();
@@ -60,29 +68,37 @@ void loop() {
       Serial.println(1);
     }
     ptol_set = 1;
+    if(pset_set == 1){
+      control = 1;
+    }
   }
-  else if((pset != -1) && (ptol != -1)){
-    float pressure_hPa = mpr.readPressure();
-    if (Serial.availableForWrite() == 63){
-      Serial.println(pressure_hPa);
+  // control and measure
+  if ((pset != -1) && (ptol != -1) && (control == 1)){
+    if (Serial.available() > 0) {
+      instruction = Serial.read();
     }
-    if ((pressure_hPa < pset - ptol) && pump == 0) {
-//      Serial.println("Switching pump ON.");
-      digitalWrite(Relay, HIGH);
-      pump = 1;
-    }
-    if ((pressure_hPa > pset + ptol) && pump == 1) {
-//      Serial.println("Switching pump OFF.");
-      digitalWrite(Relay, LOW);
-      pump = 0;
-    }
-    char tmp = Serial.read();
-    if(tmp == "r"){
+    if (instruction == 'r') {
+      Serial.println("reset");
       pset=-1;
       ptol=-1;
       pset_set=0;
       ptol_set=0;
+      control=0;
+      digitalWrite(Relay, LOW);
+      pump = 0;
     }
-  }
-  delay(100);
+    else {
+      pressure_hPa = mpr.readPressure();
+      Serial.println(pressure_hPa);
+    }
+    if ((pressure_hPa < pset - ptol) && pump == 0 && control == 1) {
+      digitalWrite(Relay, HIGH);
+      pump = 1;
+    }
+    if ((pressure_hPa > pset + ptol) && pump == 1 && control == 1) {
+      digitalWrite(Relay, LOW);
+      pump = 0;
+    }
+    }
+  delay(5);
 }

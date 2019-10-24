@@ -6,7 +6,8 @@ import time
 import glob
 import sys
 import getopt
-import pdb
+import os
+
 
 # globals for reading temperature
 base_dir = '/sys/bus/w1/devices/'
@@ -19,6 +20,7 @@ def read_temp_raw():
     f.close()
     return lines
  
+
 def read_temp():
     lines = read_temp_raw()
     while lines[0].strip()[-3:] != 'YES':
@@ -47,7 +49,7 @@ def main(soil_type, p_set, p_tol=9.5, sampling_rate=100.):
             msg = serNANO.readline()
             assert int(msg) == 1
     except:
-        print("NANO failed to confirm receipt of paramerter")
+        print("NANO failed to confirm receipt of parameter")
     serNANO.write(bytes(str(p_tol)+'\n','utf-8'))
     serNANO.flush()
     time.sleep(0.5)
@@ -56,11 +58,13 @@ def main(soil_type, p_set, p_tol=9.5, sampling_rate=100.):
             msg = serNANO.readline()
             assert int(msg) == 1
     except:
-        print("NANO failed to confirm receipt of paramerter")
+        print("NANO failed to confirm receipt of parameter")
     time.sleep(0.5)
 
     # confirm pressure can be read
     try:
+        serNANO.write(b'1')
+        serNANO.flush()
         tmp = serNANO.readline()
         pressure = float(tmp)
         assert 0. < pressure < 2000.
@@ -86,18 +90,78 @@ def main(soil_type, p_set, p_tol=9.5, sampling_rate=100.):
 
     # loop
         # read depth, pressure, and temperature every 0.01 seconds
-    for i in range(100):
-        tmp = serNANO.readline()
-        print(float(tmp))
-        time.sleep(0.1)
+    t = []
+    depth = []
+    pressure = []
+    run = True
+    
+    print("Starting sampling loop. Press CTRL-C to terminate.")
+    start_time = (time.ctime()).replace(" ", "_")
+    serNANO.flushInput()
+    time.sleep(0.1)
+    delay = 1. / sampling_rate
 
-    # save data
-        # filename should contain: p_set, p_tol, soil_type, sampling rate,
-        # start_time, end_time
+    temperature = read_temp()
+
+    while run:
+        try:
+            serUNO.flushInput()
+            tmpdepth = serUNO.readline()
+            try:
+                float(tmpdepth)
+            except:
+                continue
+            serNANO.flushInput()
+            serNANO.readline() # makes sure we take two reads in case of partial output
+            tmppressure = serNANO.readline()
+            try:
+                float(tmppressure)
+            except:
+                continue
+            depth.append(float(tmpdepth))
+            pressure.append(float(tmppressure))
+            t.append(time.perf_counter())
+            print("depth:    {}    pressure:    {}\r".format(float(tmpdepth), float(tmppressure)), end="")
+            time.sleep(delay)
+
+        except KeyboardInterrupt:
+            run = False
+            # save data
+                # filename should contain: p_set, soil_type, sampling rate,
+                # start_time, temperature
+            t = np.array(t).reshape(1,-1)
+            depth = np.array(depth).reshape(1,-1)
+            pressure = np.array(pressure).reshape(1,-1)
+            min_len = min([t.shape[1], depth.shape[1], pressure.shape[1]])
+            t = t[:,:min_len]
+            depth = depth[:,:min_len]
+            pressure = pressure[:,:min_len]
+            data = np.concatenate([t, depth, pressure], axis=0)
+            filename = (soil_type + '_' + str(p_set) + '_' + str(sampling_rate) + '_' +
+                    str(temperature) + '_' + start_time)
+            save_data = True
+            user_input = input("\nSave the data? (y) n\n")
+            if user_input == 'n':
+                save_data = False
+            if save_data:
+                print("Saving the data...")
+                if os.path.isdir("./data"):
+                    np.savetxt('./data/' + filename, data)
+                else: 
+                    os.path.mkdir("./data")
+                    np.savetxt('./data/' + filename, data)
 
     # reset the pump controller
-    time.sleep(0.5)
+    print("Resetting the pump controller before exiting...")
+    serNANO.flushOutput()
+    serNANO.flushInput()
     serNANO.write(b'r')
+    time.sleep(0.5)
+    while serNANO.in_waiting > 0:
+        tmp = serNANO.readline()
+        time.sleep(0.1)
+    assert tmp == b"reset\r\n"
+    print("pump reset")
 
 
 def usage():
