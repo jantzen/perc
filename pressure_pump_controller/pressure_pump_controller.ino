@@ -27,38 +27,62 @@
 #define EOC_PIN    -1  // set to any GPIO pin to read end-of-conversion by pin
 Adafruit_MPRLS mpr = Adafruit_MPRLS(RESET_PIN, EOC_PIN);
 int Relay = 2; //Digital pin D2
-float setpoint = 1400;
-float error = 10;
-int pump = 0;
-
+int pump = 0; //Start pump in off state
+int ptol_set = 0; //indicate parameters not yet received
+int pset_set = 0;
+float pset = -1; // set initial nonsense value for pressure setpoin
+float ptol = -1; // set nonsense value for error tolerance
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("MPRLS Simple Test");
   if (! mpr.begin()) {
-    Serial.println("Failed to communicate with MPRLS sensor, check wiring?");
     while (1) {
       delay(10);
     }
   }
-  Serial.println("Found MPRLS sensor");
   pinMode(Relay, OUTPUT); // declare pin Relay as output
-  digitalWrite(Relay, LOW);
+  digitalWrite(Relay, LOW); // make sure the circuit is closed (pump off)
 }
 
 void loop() {
-  float pressure_hPa = mpr.readPressure();
-  Serial.println(pump);
-  Serial.print("Pressure (hPa): "); Serial.println(pressure_hPa);
-  if ((pressure_hPa < 1000) && pump == 0) {
-    Serial.println("Switching pump ON.");
-    digitalWrite(Relay, HIGH);
-    pump = 1;
+  if(pset_set == 0 && Serial.available() > 0){
+    float tmp = Serial.parseFloat();
+    if (1500 >= tmp && tmp >= 0){
+      pset = tmp;
+      Serial.println(1);
+    }
+    pset_set = 1;
   }
-  if ((pressure_hPa > 1050) && pump == 1) {
-    Serial.println("Switching pump OFF.");
-    digitalWrite(Relay, LOW);
-    pump = 0;
+  else if(ptol_set == 0 && Serial.available() > 0){
+    float tmp = Serial.parseFloat();
+    if (100 >= tmp && tmp >= 1){
+      ptol = tmp;
+      Serial.println(1);
+    }
+    ptol_set = 1;
+  }
+  else if((pset != -1) && (ptol != -1)){
+    float pressure_hPa = mpr.readPressure();
+    if (Serial.availableForWrite() == 63){
+      Serial.println(pressure_hPa);
+    }
+    if ((pressure_hPa < pset - ptol) && pump == 0) {
+//      Serial.println("Switching pump ON.");
+      digitalWrite(Relay, HIGH);
+      pump = 1;
+    }
+    if ((pressure_hPa > pset + ptol) && pump == 1) {
+//      Serial.println("Switching pump OFF.");
+      digitalWrite(Relay, LOW);
+      pump = 0;
+    }
+    char tmp = Serial.read();
+    if(tmp == "r"){
+      pset=-1;
+      ptol=-1;
+      pset_set=0;
+      ptol_set=0;
+    }
   }
   delay(100);
 }
