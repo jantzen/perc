@@ -177,7 +177,7 @@ if __name__ == '__main__':
     # read command line arguments
     # require: pressure setpoint, soil type
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "s:p:t:o:h") 
+        opts, args = getopt.getopt(sys.argv[1:], "s:p:t:r:o:h") 
     except getopt.GetoptError as err:
         # print help information and exit:
         err = "Unrecognized options."
