@@ -33,7 +33,7 @@ def read_temp():
         return temp_c
  
 
-def main(soil_type, p_set, p_tol=9.5, sampling_rate=100.):
+def main(soil_type, p_set, p_tol=9.5, sampling_rate=10.):
     # create and open serial ports
     print("Setting up serial connections...")
     serUNO = serial.Serial('/dev/ttyUSB0',baudrate=115200, timeout=5.0)
