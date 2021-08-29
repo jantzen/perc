@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import glob
+import matplotlib.patches as mpatches
+import pdb
 
 # There is variation within the same kind (multiple runs of sand and soil at
 # atmospheric pressure)
@@ -168,8 +170,8 @@ for i,fr in enumerate(ts):
     tssyms.append([untrans,trans])
 
 # plot timeseries along with smoothed curves used for determining cut points
-fig, axs = plt.subplots(3, 1)
-fig.tight_layout()
+fig, axs = plt.subplots(3, 1, figsize=(3,6))
+fig.tight_layout(rect=[0.05, 0.05, 0.95, 0.95], h_pad=3., w_pad=2.7)
 for ii, fr in enumerate(sa):
     t = np.arange(len(fr))
     t = t / 10.
@@ -177,7 +179,9 @@ for ii, fr in enumerate(sa):
     axs[0].plot(t, ssmooth[ii],'k-')
 axs[0].set_ylim([0,1200] )
 axs[0].set_xlim([0, 1000])
-axs[0].set_title("Volume of water passing through sand vs. time")
+axs[0].set_xlabel("time [s]", fontsize=6)
+axs[0].set_ylabel("volume [mL]", fontsize=6)
+axs[0].set_title("(a)", fontsize=8, weight='bold')
 for ii, fr in enumerate(ts):
     t = np.arange(len(fr))
     t = t / 10.
@@ -185,12 +189,23 @@ for ii, fr in enumerate(ts):
     axs[1].plot(t, tssmooth[ii],'k-')
 axs[1].set_ylim([0, 1200]) 
 axs[1].set_xlim([0, 1000])
-axs[1].set_title("Volume of water passing through topsoil vs. time")
+axs[1].set_xlabel("time [s]", fontsize=6)
+axs[1].set_ylabel("volume [mL]", fontsize=6)
+axs[1].set_title("(b)", fontsize=8, weight='bold')
 # plot the symmetries
 for ss in ssyms:
     axs[2].plot(ss[0], ss[1], "o", color='tan', alpha=0.3)
 for ts in tssyms:
     axs[2].plot(ts[0], ts[1], "o", color='darkolivegreen', alpha=0.3)
+axs[2].set_ylim([200, 500])
+axs[2].set_xlim([70, 300])
+axs[2].set_xlabel("volume [mL]", fontsize=6)
+axs[2].set_ylabel("volume [mL]", fontsize=6)
+axs[2].set_title("(c)", fontsize=8, weight='bold')
+tan_patch = mpatches.Patch(color='tan', label='sand')
+green_patch = mpatches.Patch(color='darkolivegreen', label='topsoil')
+plt.legend(handles=[tan_patch, green_patch])
+plt.savefig("./paper_figs/fig1.pdf")
 
 plt.show()
 
