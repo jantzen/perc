@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import matplotlib.patches as mpatches
+import eugene as eu
 import pdb
 
 # There is variation within the same kind (multiple runs of sand and soil at
@@ -169,6 +170,22 @@ for i,fr in enumerate(ts):
         trans = trans[:len(untrans)]
     tssyms.append([untrans,trans])
 
+# test all symmetries against each other
+out = []
+for ss in ssyms:
+    for tss in tssyms:
+        X = np.array(ss).T
+        Y = np.array(tss).T
+        D = eu.probability.EnergyDistance(X, Y)
+        n = 50
+        result = eu.probability.significant(X, Y, D, n)
+        out.append(result)
+        print(result)
+if np.all(np.array(out) == False):
+    print("All symmetries the same.")
+else:
+    print("There is a signficant difference between dynamical symmetries.")
+
 # plot timeseries along with smoothed curves used for determining cut points
 fig, axs = plt.subplots(3, 1, figsize=(3,6))
 fig.tight_layout(rect=[0.05, 0.05, 0.95, 0.95], h_pad=3., w_pad=2.7)
@@ -182,6 +199,8 @@ axs[0].set_xlim([0, 1000])
 axs[0].set_xlabel("time [s]", fontsize=6)
 axs[0].set_ylabel("volume [mL]", fontsize=6)
 axs[0].set_title("(a)", fontsize=8, weight='bold')
+axs[0].tick_params(axis='x', labelsize=6)
+axs[0].tick_params(axis='y', labelsize=6)
 for ii, fr in enumerate(ts):
     t = np.arange(len(fr))
     t = t / 10.
@@ -192,6 +211,8 @@ axs[1].set_xlim([0, 1000])
 axs[1].set_xlabel("time [s]", fontsize=6)
 axs[1].set_ylabel("volume [mL]", fontsize=6)
 axs[1].set_title("(b)", fontsize=8, weight='bold')
+axs[1].tick_params(axis='x', labelsize=6)
+axs[1].tick_params(axis='y', labelsize=6)
 # plot the symmetries
 for ss in ssyms:
     axs[2].plot(ss[0], ss[1], "o", color='tan', alpha=0.3)
@@ -202,15 +223,78 @@ axs[2].set_xlim([70, 300])
 axs[2].set_xlabel("volume [mL]", fontsize=6)
 axs[2].set_ylabel("volume [mL]", fontsize=6)
 axs[2].set_title("(c)", fontsize=8, weight='bold')
+axs[2].tick_params(axis='x', labelsize=6)
+axs[2].tick_params(axis='y', labelsize=6)
 tan_patch = mpatches.Patch(color='tan', label='sand')
 green_patch = mpatches.Patch(color='darkolivegreen', label='topsoil')
 plt.legend(handles=[tan_patch, green_patch])
 plt.savefig("./paper_figs/fig1.pdf")
 
+# compute and display wettability and intrinsic resistance
+
+#####################################################################
+# Pressure study with sand
+files=[]
+#files.append('../data/sand_900.0_10.0_22.937_Mon_Nov__4_12:08:43_2019')
+#files.append('../data/sand_900.0_10.0_22.25_Mon_Nov__4_12:37:56_2019')
+files.append('../data/sand_900.0_10.0_22.562_Mon_Nov__4_13:07:53_2019')
+files.append('../data/sand_960.0_10.0_24.375_Mon_Nov__4_13:37:13_2019')
+files.append('../data/sand_1010.0_10.0_26.312_Mon_Nov__4_14:06:45_2019')
+files.append('../data/sand_1060.0_10.0_27.375_Mon_Nov__4_14:28:19_2019')
+files.append('../data/sand_1110.0_10.0_27.25_Mon_Nov__4_14:43:04_2019')
+files.append('../data/sand_1160.0_10.0_26.937_Mon_Nov__4_14:58:00_2019')
+#files.append('../data/sand_900.0_10.0_26.875_Mon_Nov__4_15:08:46_2019')
+
+frames = []
+for f in files:
+    tmp = np.loadtxt(f)
+    tmp = tmp[:,np.max(np.where(tmp[1,:]>250)):]
+    tmp = tmp.T
+    tmp[:,1] = (tmp[0,1] - tmp[:,1]) / 10. * np.pi * (2.25 * 2.54)**2
+    frames.append(pd.DataFrame(tmp,columns=["time","volume","pressure"]))
+
+smooth = []
+for fr in frames:
+    smooth.append(fr['volume'].ewm(span=50).mean())
+
+#motor_setting = [951., 951., 951., 960., 1010., 1060., 1110., 1160., 951.]
+motor_setting = [951., 960., 1010., 1060., 1110., 1160.]
+cp = []
+for s in smooth:
+    cp.append(np.min(np.where(s>=800))/ 10.) 
+data = np.concatenate([np.array(motor_setting).reshape(-1,1),np.array(cp).reshape(-1,1)],axis=1)
+pdata = pd.DataFrame(data, columns=["motor_setting","time_800"])
+print(pdata)
+
+fig, axs = plt.subplots(1, 2, figsize=(6,3))
+fig.tight_layout(rect=[0.05, 0.05, 0.95, 0.95], h_pad=3., w_pad=2.7)
+for ii, fr in enumerate(frames):
+#    axs[0].plot(fr['time'], fr['volume'], '.', color='tan', alpha=0.3)
+    times = fr['time'].to_numpy()
+    times = times - times[0]
+    axs[0].plot(times, fr['volume'], '.', color='tan', alpha=0.3)
+    axs[0].plot(times, smooth[ii], 'k-')
+    axs[0].set_xlabel("time [s]", fontsize=6)
+    axs[0].set_ylabel("volume [mL]", fontsize=6)
+axs[0].tick_params(axis='x', labelsize=6)
+axs[0].tick_params(axis='y', labelsize=6)
+axs[0].set_title("(a)", fontsize=8)
+axs[1].plot((pdata["motor_setting"]),np.log(pdata["time_800"]),'o', 
+        color='tab:purple')
+fit = np.polyfit((pdata["motor_setting"]),np.log(pdata["time_800"]),1)
+print(fit)
+x = np.linspace(np.min(pdata["motor_setting"]),np.max(pdata["motor_setting"]))
+y = fit[0] * x + fit[1]
+axs[1].plot(x,y,'k-')
+axs[1].set_title("(b)", fontsize=8)
+axs[1].set_xlabel("Motor setting [hPa]", fontsize=6)
+axs[1].set_ylabel("log(intrinsic resistance) [log(s)]", fontsize=6)
+axs[1].tick_params(axis='x', labelsize=6)
+axs[1].tick_params(axis='y', labelsize=6)
+plt.savefig("./paper_figs/fig2.pdf")
+
+
+
 plt.show()
 
-# generate plot of volume-time curves
 
-# we thus introduce hydrological resistance (HR)
-
-# HR varies with water content introduce saturation
