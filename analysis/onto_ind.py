@@ -231,6 +231,30 @@ plt.legend(handles=[tan_patch, green_patch])
 plt.savefig("./paper_figs/fig1.pdf")
 
 # compute and display wettability and intrinsic resistance
+sand_wettability = []
+sand_ir = []
+soil_wettability = []
+soil_ir = []
+for fr in ssmooth:
+    v = fr
+    high = np.max(v)
+    mid = np.max(np.where(v<600.))
+    sand_wettability.append(1200. - high)
+    sand_ir.append(mid / 10.)
+for fr in tssmooth:
+    v = fr
+    high = np.max(v)
+    mid = np.max(np.where(v<600.))
+    soil_wettability.append(1200. - high)
+    soil_ir.append(mid / 10.)
+for ii, f in enumerate(sand_files):
+    print(f)
+    print("wettability: {}".format(sand_wettability[ii]))
+    print("intrinsic resistance: {}".format(sand_ir[ii]))
+for ii, f in enumerate(topsoil_files):
+    print(f)
+    print("wettability: {}".format(soil_wettability[ii]))
+    print("intrinsic resistance: {}".format(soil_ir[ii]))
 
 #####################################################################
 # Pressure study with sand
@@ -287,14 +311,12 @@ x = np.linspace(np.min(pdata["motor_setting"]),np.max(pdata["motor_setting"]))
 y = fit[0] * x + fit[1]
 axs[1].plot(x,y,'k-')
 axs[1].set_title("(b)", fontsize=8)
-axs[1].set_xlabel("Motor setting [hPa]", fontsize=6)
+axs[1].set_xlabel("motor setting [hPa]", fontsize=6)
 axs[1].set_ylabel("log(intrinsic resistance) [log(s)]", fontsize=6)
 axs[1].tick_params(axis='x', labelsize=6)
 axs[1].tick_params(axis='y', labelsize=6)
 plt.savefig("./paper_figs/fig2.pdf")
 
 
-
-plt.show()
-
+#plt.show()
 
